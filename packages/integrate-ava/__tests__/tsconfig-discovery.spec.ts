@@ -46,7 +46,13 @@ function transformInSubprocess(
   };
 }
 
-test("walks up to parent tsconfig.json when sub-project has none", (t) => {
+// Nested `--input-type=module -e` subprocesses that load @oxc-node/core via
+// `await import()` crash on WASI (the forced-WASI worker init fails inside an
+// inline ESM script). The walk-up logic is platform-agnostic, so we cover it
+// on the native targets only.
+const runTest = process.env.NAPI_RS_FORCE_WASI ? test.skip : test;
+
+runTest("walks up to parent tsconfig.json when sub-project has none", (t) => {
   const { stdout, stderr, status } = transformInSubprocess(SUB_PROJECT_DIR);
   t.is(status, 0, `subprocess failed: ${stderr}`);
   t.regex(
@@ -56,7 +62,7 @@ test("walks up to parent tsconfig.json when sub-project has none", (t) => {
   );
 });
 
-test("explicit TS_NODE_PROJECT wins over walk-up", (t) => {
+runTest("explicit TS_NODE_PROJECT wins over walk-up", (t) => {
   const { stdout, stderr, status } = transformInSubprocess(SUB_PROJECT_DIR, {
     TS_NODE_PROJECT: "/this/path/does/not/exist.json",
   });
